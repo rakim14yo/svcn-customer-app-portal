@@ -453,24 +453,47 @@
       padding: 5px 13px;
     }
 
+    .pay-btns {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
     .btn-bkash {
-      width: 100%;
       background: #E2136E;
       color: var(--white);
       font-family: var(--fh);
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 700;
-      letter-spacing: 2.5px;
+      letter-spacing: 2px;
       text-transform: uppercase;
-      padding: 16px;
+      padding: 15px 10px;
       cursor: pointer;
       transition: opacity 0.2s;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
+      gap: 6px;
     }
     .btn-bkash:active { opacity: 0.84; }
+
+    .btn-nagad {
+      background: #F15829;
+      color: var(--white);
+      font-family: var(--fh);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      padding: 15px 10px;
+      cursor: pointer;
+      transition: opacity 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .btn-nagad:active { opacity: 0.84; }
 
     /* Speed test card */
     .speed-display {
@@ -865,7 +888,7 @@
       </div>
     </div>
 
-    <!-- bKash Payment -->
+    <!-- Payment -->
     <div class="bkash-card">
       <div class="card-label">Pay Your Bill</div>
       <div class="bkash-top">
@@ -873,11 +896,15 @@
           <div class="bkash-amount-label">Amount Due</div>
           <div class="bkash-amount-value">৳<span id="pay-amount">—</span></div>
         </div>
-        <div class="bkash-badge">bKash</div>
       </div>
-      <button class="btn-bkash" onclick="openPayModal()">
-        Pay with bKash →
-      </button>
+      <div class="pay-btns">
+        <button class="btn-bkash" onclick="openPayModal('bkash')">
+          bKash →
+        </button>
+        <button class="btn-nagad" onclick="openPayModal('nagad')">
+          Nagad →
+        </button>
+      </div>
     </div>
 
     <!-- Speed Test -->
@@ -934,16 +961,16 @@
 <div class="modal-ov" id="pay-modal" onclick="handleModalBg(event)">
   <div class="modal-box">
     <div class="modal-handle"></div>
-    <div class="modal-title">Pay with bKash</div>
+    <div class="modal-title" id="modal-title">Pay with bKash</div>
 
     <div class="modal-step">
       <div class="modal-step-num">1</div>
-      <div class="modal-step-text">Open your <strong>bKash app</strong> and tap <strong>Send Money</strong></div>
+      <div class="modal-step-text">Open your <strong id="modal-app-name">bKash app</strong> and tap <strong>Send Money</strong></div>
     </div>
 
     <div class="modal-num-box">
       <div class="modal-num-val" id="modal-bkash-num">—</div>
-      <button class="btn-copy" onclick="copyBkashNum()">Copy</button>
+      <button class="btn-copy" onclick="copyPayNum()">Copy</button>
     </div>
 
     <div class="modal-step">
@@ -980,7 +1007,8 @@ const SUPABASE_URL  = 'https://ageskzrxknmaudxzqtng.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFnZXNrenJ4a25tYXVkeHpxdG5nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1MTgzODEsImV4cCI6MjA5NDA5NDM4MX0.mVVAzGUJREGAIqkn8noZEZp8UmXk7gk-dneEYWZTljc';
 
 // ⚠️  REPLACE THIS with your actual bKash personal/agent number
-const BKASH_NUMBER  = '01612551616';
+const BKASH_NUMBER  = '01XXXXXXXXX';
+const NAGAD_NUMBER  = '01612551616';
 const WA_NUMBER     = '8801634348602';
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -1111,19 +1139,8 @@ function populateCustomer() {
     document.getElementById('connection-start').textContent = 'N/A';
   }
 
-  // Modal
-  document.getElementById('modal-bkash-num').textContent = BKASH_NUMBER;
-  document.getElementById('modal-amount').textContent    = c.bill_amount.toLocaleString('en-BD');
-
-  const waText = encodeURIComponent(
-    `SVCN Bill Payment\n` +
-    `Name: ${c.name}\n` +
-    `Phone: ${c.phone}\n` +
-    `Amount: ৳${c.bill_amount}\n\n` +
-    `[Please find payment screenshot attached]`
-  );
-  document.getElementById('modal-wa-link').href =
-    `https://wa.me/${WA_NUMBER}?text=${waText}`;
+  // Modal amount (number and WA link set dynamically when modal opens)
+  document.getElementById('modal-amount').textContent = c.bill_amount.toLocaleString('en-BD');
 }
 
 // ── OUTAGES ────────────────────────────────────────────
@@ -1222,16 +1239,39 @@ async function runSpeedTest() {
   btn.textContent = 'Run Again';
 }
 
-// ── BKASH MODAL ────────────────────────────────────────
-function openPayModal()  { document.getElementById('pay-modal').classList.add('open');    }
+// ── BKASH / NAGAD MODAL ────────────────────────────────
+let activePayNum = BKASH_NUMBER;
+
+function openPayModal(method) {
+  const isBkash = method === 'bkash';
+  activePayNum  = isBkash ? BKASH_NUMBER : NAGAD_NUMBER;
+
+  document.getElementById('modal-title').textContent    = isBkash ? 'Pay with bKash' : 'Pay with Nagad';
+  document.getElementById('modal-app-name').textContent = isBkash ? 'bKash app'      : 'Nagad app';
+  document.getElementById('modal-bkash-num').textContent = activePayNum;
+  document.getElementById('modal-amount').textContent   = customer.bill_amount.toLocaleString('en-BD');
+
+  const methodLabel = isBkash ? 'bKash' : 'Nagad';
+  const waText = encodeURIComponent(
+    `SVCN Bill Payment (${methodLabel})\n` +
+    `Name: ${customer.name}\n` +
+    `Phone: ${customer.phone}\n` +
+    `Amount: ৳${customer.bill_amount}\n\n` +
+    `[Please find payment screenshot attached]`
+  );
+  document.getElementById('modal-wa-link').href = `https://wa.me/${WA_NUMBER}?text=${waText}`;
+
+  document.getElementById('pay-modal').classList.add('open');
+}
+
 function closePayModal() { document.getElementById('pay-modal').classList.remove('open'); }
 
 function handleModalBg(e) {
   if (e.target === document.getElementById('pay-modal')) closePayModal();
 }
 
-function copyBkashNum() {
-  navigator.clipboard.writeText(BKASH_NUMBER).then(() => {
+function copyPayNum() {
+  navigator.clipboard.writeText(activePayNum).then(() => {
     const btn = document.querySelector('.btn-copy');
     btn.textContent = 'Copied!';
     setTimeout(() => btn.textContent = 'Copy', 2200);
